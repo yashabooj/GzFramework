@@ -20,16 +20,15 @@ Jittered Sub-Sampling
 The current texture mapping method is set to image mapping with Phong vertex 
 normals interpolation shading.
 
-To change the Texture Mapping Method - 
-1.Open Application6.cpp
-2.Search for macro that sets 'valueListShader[5]'
-3.Change (tex_fun) to (ptex_fun) for procedural texturing
+To change the Texture Mapping Method 
+1. Open Application6.cpp
+2. Search for macro that sets 'valueListShader[5]'
+3. Change (tex_fun) to (ptex_fun) for procedural texturing
 
 Note: Effect of procedural texturing is prominent when the default camera is used.
 Julia Set method is used to implement procedural texturing.
 
-To change the shading method -
-1.Open Application6.cpp
-2.Serch for 'interpStyle'
-3.Change the GZ_NORMALS flag to GZ_COLOR to render using Gouraud shading and to 
-GZ_NONE to render using flat shading.
+To change the shading method
+1. Open Application6.cpp
+2. Serch for 'interpStyle'
+3. Change the GZ_NORMALS flag to GZ_COLOR to render using Gouraud shading and to GZ_NONE to render using flat shading.
