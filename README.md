@@ -28,6 +28,11 @@ To change the Texture Mapping Method
 Note: Effect of procedural texturing is prominent when the default camera is used.
 Julia Set method is used to implement procedural texturing.
 
+### SHADING METHOD ###
+
+The current shading method has been set to Phong vertex normals interpolation 
+shading.
+
 To change the shading method
 * Open Application6.cpp
 * Serch for 'interpStyle'
