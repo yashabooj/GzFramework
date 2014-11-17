@@ -1,30 +1,21 @@
-GzFramework
-===========
-graphics renderer
+#GzFramework Readme
+##Graphics Renderer
 
-/* YASH ABOOJ
-
-   README */
-
-/******************************************************************************
-COMPILATION
-
+### COMPILATION
+```
 MS Visual Studio:	Version 2013
 Build Mode: 		Debug(x32)
 GzFramework is used for the program.
-Build the project and use the GUI options to Render, Rotate, Translate and Scale
-the tea-pot.
-
-******************************************************************************/
-/******************************************************************************
-ANTI-ALIASING METHOD
+Build the project and use the GUI options to Render, Rotate, Translate and Scale the tea-pot.
+```
+### ANTI-ALIASING METHOD
 
 Jittered Sub-Sampling
-- six sample renders are generated according to the specified (dx, dy) offsets
-- the offsets specified in the AAFilter are subtracted from the triangle vertices
-- the six renders are then weighted and combined to produce the final render
+* six sample renders are generated according to the specified (dx, dy) offsets
+* the offsets specified in the AAFilter are subtracted from the triangle vertices
+* the six renders are then weighted and combined to produce the final render
 
-TEXTURE MAPPING METHOD
+### TEXTURE MAPPING METHOD
 
 The current texture mapping method is set to image mapping with Phong vertex 
 normals interpolation shading.
@@ -42,5 +33,3 @@ To change the shading method -
 2. Serch for 'interpStyle'
 3. Change the GZ_NORMALS flag to GZ_COLOR to render using Gouraud shading and to 
 GZ_NONE to render using flat shading.
-
-******************************************************************************/
