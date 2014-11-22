@@ -694,6 +694,326 @@ int GzGetTexture(GzColor K, GzRender* render, GzTextureIndex vertUV[], GzCoord z
 	return GZ_SUCCESS;
 }
 
+int GzSetPlane(GzPlane* p, GzCoord V1, GzCoord V2, GzCoord V3, GzCoord N1, GzCoord N2, GzCoord N3) {
+	
+	GzCoord edge1, edge2;
+	GzVector(edge1, V1, V2);
+	GzVector(edge2, V1, V3);
+
+	GzCoord normal;
+	GzCrossProduct(normal, edge1, edge2);
+	GzNormalize(normal);
+
+	float direction = GzDotProduct(normal, N1);
+
+	if (direction > 0.0) {
+		p->normal[X] = normal[X];
+		p->normal[Y] = normal[Y];
+		p->normal[Z] = normal[Z];
+	}
+	else {
+		p->normal[X] = (-1.0) * normal[X];
+		p->normal[Y] = (-1.0) * normal[Y];
+		p->normal[Z] = (-1.0) * normal[Z];
+	}
+
+	p->distance = (-1.0) * GzDotProduct(p->normal, V1) / GzNorm(p->normal);
+
+	return GZ_SUCCESS;
+}
+
+int GzSetPlane(GzPlane* p, GzTriangle tri) {
+
+	GzCoord edge1, edge2;
+	GzVector(edge1, tri.vertex[0], tri.vertex[1]);
+	GzVector(edge2, tri.vertex[0], tri.vertex[2]);
+
+	GzCoord normal;
+	GzCrossProduct(normal, edge1, edge2);
+	GzNormalize(normal);
+
+	float direction = GzDotProduct(normal, tri.vertNormal[0]);
+
+	if (direction > 0.0) {
+		p->normal[X] = normal[X];
+		p->normal[Y] = normal[Y];
+		p->normal[Z] = normal[Z];
+	}
+	else {
+		p->normal[X] = (-1.0) * normal[X];
+		p->normal[Y] = (-1.0) * normal[Y];
+		p->normal[Z] = (-1.0) * normal[Z];
+	}
+
+	p->distance = (-1.0) * GzDotProduct(p->normal, tri.vertex[0]) / GzNorm(p->normal);
+
+	return GZ_SUCCESS;
+}
+
+float GzNorm(GzCoord vector) {
+	return sqrtf(pow(vector[X], 2) + pow(vector[Y], 2) + pow(vector[Z], 2));
+}
+
+int GzNormalize(GzCoord vector) {
+	float norm = GzNorm(vector);
+
+	vector[X] = vector[X] / norm;
+	vector[Y] = vector[Y] / norm;
+	vector[Z] = vector[Z] / norm;
+
+	return GZ_SUCCESS;
+}
+
+int GzCrossProduct(GzCoord ACrossB, GzCoord A, GzCoord B) {
+	ACrossB[X] = A[Y] * B[Z] - A[Z] * B[Y];
+	ACrossB[Y] = A[Z] * B[X] - A[X] * B[Z];
+	ACrossB[Z] = A[X] * B[Y] - A[Y] * B[X];
+
+	return GZ_SUCCESS;
+}
+
+int GzVector(GzCoord vectAtoB, GzCoord A, GzCoord B) {
+	vectAtoB[X] = B[X] - A[X];
+	vectAtoB[Y] = B[Y] - A[Y];
+	vectAtoB[Z] = B[Z] - A[Z];
+
+	return GZ_SUCCESS;
+}
+
+int GzRayTriangleIntersection(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3) {
+	float cosine = GzDotProduct(plane.normal, ray.direction);
+
+	if ((cosine > (-0.00001)) && (cosine < 0.00001))
+		return GZ_FAILURE;
+
+	float paramRay = (-1) * (GzDotProduct(plane.normal, ray.origin) + plane.distance) / cosine;
+
+	PointOfIntersection[X] = ray.origin[X] + paramRay * ray.direction[X];
+	PointOfIntersection[Y] = ray.origin[Y] + paramRay * ray.direction[Y];
+	PointOfIntersection[Z] = ray.origin[Z] + paramRay * ray.direction[Z];
+
+	int check = GzPointWithinTriangle(PointOfIntersection, plane, ray, V1, V2, V3);
+
+	return check;
+}
+
+int GzRayTriangleIntersection(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri) {
+	float cosine = GzDotProduct(plane.normal, ray.direction);
+
+	if ((cosine > (-0.00001)) && (cosine < 0.00001))
+		return GZ_FAILURE;
+
+	float paramRay = (-1) * (GzDotProduct(plane.normal, ray.origin) + plane.distance) / cosine;
+
+	PointOfIntersection[X] = ray.origin[X] + paramRay * ray.direction[X];
+	PointOfIntersection[Y] = ray.origin[Y] + paramRay * ray.direction[Y];
+	PointOfIntersection[Z] = ray.origin[Z] + paramRay * ray.direction[Z];
+
+	int check = GzPointWithinTriangle(PointOfIntersection, plane, ray, tri);
+
+	return check;
+}
+
+int GzPointWithinTriangle(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3) {
+	int check1 = GzPointAbovePlane(PointOfIntersection, plane, ray, V1, V2, V3);
+	int check2 = GzPointAbovePlane(PointOfIntersection, plane, ray, V2, V3, V1);
+	int check3 = GzPointAbovePlane(PointOfIntersection, plane, ray, V3, V1, V2);
+
+	if ((check1 == GZ_FAILURE) || (check2 == GZ_FAILURE) || (check3 == GZ_FAILURE))
+		return GZ_FAILURE;
+
+	return GZ_SUCCESS;
+}
+
+int GzPointWithinTriangle(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri) {
+	int check1 = GzPointAbovePlane(PointOfIntersection, plane, ray, tri.vertex[0], tri.vertex[1], tri.vertex[2]);
+	int check2 = GzPointAbovePlane(PointOfIntersection, plane, ray, tri.vertex[1], tri.vertex[2], tri.vertex[0]);
+	int check3 = GzPointAbovePlane(PointOfIntersection, plane, ray, tri.vertex[2], tri.vertex[0], tri.vertex[1]);
+
+	if ((check1 == GZ_FAILURE) || (check2 == GZ_FAILURE) || (check3 == GZ_FAILURE))
+		return GZ_FAILURE;
+
+	return GZ_SUCCESS;
+}
+
+int GzPointAbovePlane(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3) {
+	GzCoord edge1, edge2, edge3;
+
+	GzVector(edge1, ray.origin, V1);
+	GzVector(edge2, ray.origin, V2);
+	GzVector(edge3, ray.origin, V3);
+
+	GzCoord normal;
+	GzCrossProduct(normal, edge2, edge1);
+	GzNormalize(normal);
+
+	float dir = GzDotProduct(normal, edge3);
+	if (dir < 0.0) {
+		normal[X] = (-1) * normal[X];	normal[Y] = (-1) * normal[Y];	normal[Z] = (-1) * normal[Z];
+	}
+
+	if ((GzDotProduct(PointOfIntersection, normal) - GzDotProduct(ray.origin, normal)) < 0.0)
+		return GZ_FAILURE;
+
+	return GZ_SUCCESS;
+}
+
+int GzPointAbovePlane(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri) {
+	GzCoord edge1, edge2, edge3;
+
+	GzVector(edge1, ray.origin, tri.vertex[0]);
+	GzVector(edge2, ray.origin, tri.vertex[1]);
+	GzVector(edge3, ray.origin, tri.vertex[2]);
+
+	GzCoord normal;
+	GzCrossProduct(normal, edge2, edge1);
+	GzNormalize(normal);
+
+	float dir = GzDotProduct(normal, edge3);
+	if (dir < 0.0) {
+		normal[X] = (-1) * normal[X];	normal[Y] = (-1) * normal[Y];	normal[Z] = (-1) * normal[Z];
+	}
+
+	if ((GzDotProduct(PointOfIntersection, normal) - GzDotProduct(ray.origin, normal)) < 0.0)
+		return GZ_FAILURE;
+
+	return GZ_SUCCESS;
+}
+
+int GzSetTriangle(GzTriangle* tri, GzCoord V1, GzCoord V2, GzCoord V3, GzCoord N1, GzCoord N2, GzCoord N3) {
+
+	for (int i = 0; i < 3; i++){
+		tri->vertex[0][i] = V1[i];
+		tri->vertex[1][i] = V2[i];
+		tri->vertex[2][i] = V3[i];
+		tri->vertNormal[0][i] = N1[i];
+		tri->vertNormal[1][i] = N2[i];
+		tri->vertNormal[2][i] = N3[i];
+	}
+
+	return GZ_SUCCESS;
+}
+
+int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
+	GzCoord cameraDir;
+	GzVector(cameraDir, render->camera.position, render->camera.lookat);
+	GzNormalize(cameraDir);
+
+	GzCoord cameraLeft;
+	GzCrossProduct(cameraLeft, render->camera.worldup, cameraDir);
+	GzNormalize(cameraLeft);
+
+	float aspect_ratio = (float)render->display->xres / (float)render->display->yres;
+
+	for (int x = 0; x < render->display->xres; x++) {
+		for (int y = 0; y < render->display->yres; y++) {
+			float xamnt, yamnt;
+			GzRayOffsetFromCamera(render->display->xres, render->display->yres, aspect_ratio, x, y, &xamnt, &yamnt);
+
+			GzCoord scaledCamLeft;
+			GzScalarMultiply(scaledCamLeft, cameraLeft, (xamnt - 0.5));
+			GzCoord scaledCamUp;
+			GzScalarMultiply(scaledCamUp, render->camera.worldup, (yamnt - 0.5));
+			GzCoord tempVect;
+			GzVectorAdd(tempVect, scaledCamLeft, scaledCamUp);
+			GzCoord rayDirection;
+			GzVectorAdd(rayDirection, tempVect, cameraDir);
+			GzNormalize(rayDirection);
+
+			GzRay ray;
+			GzSetRay(&ray, render->camera.position, rayDirection);
+
+			//std::vector<GzCoord>	intersections;
+			std::vector<float>	intersections;
+			std::vector<int>	triangleIndex;
+
+			for (int index = 0; index < triangleList.size(); index++) {
+				GzPlane plane;
+				GzSetPlane(&plane, *(triangleList.at(index)));
+				GzCoord point;
+				int check = GzRayTriangleIntersection(point, plane, ray, *(triangleList.at(index)));
+
+				if (check == GZ_FAILURE)
+					continue;
+				else {
+					//intersections.push_back(point);
+					intersections.push_back(GzEuclideanDistance(point, render->camera.position));
+					triangleIndex.push_back(index);
+				}
+			}
+
+			if (intersections.size() == 0)
+				continue;
+
+			float minDist = INT_MAX;
+			int minTriInd;
+			for (int index = 0; index < intersections.size(); index++) {
+				//float distance = GzEuclideanDistance(intersections.at(index), render->camera.position);
+
+				//if (distance < minDist) {
+				//	minDist = distance;
+				if (intersections.at(index) < minDist) {
+					minDist = intersections.at(index);
+					minTriInd = triangleIndex.at(index);
+				}
+			}
+
+			GzPutDisplay(render->display, y, x, 4096, 0, 4096, 0, minDist);
+		}
+	}
+
+	return GZ_SUCCESS;
+}
+
+float GzEuclideanDistance(GzCoord coordA, GzCoord coordB) {
+	return sqrtf(pow(coordA[X] - coordB[X], 2) + pow(coordA[Y] - coordB[Y], 2) + pow(coordA[Z] - coordB[Z], 2));
+}
+
+int GzSetRay(GzRay* ray, GzCoord origin, GzCoord direction) {
+	ray->origin[X] = origin[X];
+	ray->origin[Y] = origin[Y];
+	ray->origin[Z] = origin[Z];
+
+	ray->direction[X] = direction[X];
+	ray->direction[Y] = direction[Y];
+	ray->direction[Z] = direction[Z];
+
+	return GZ_SUCCESS;
+}
+
+int GzScalarMultiply(GzCoord scaledVector, GzCoord vector, float scale) {
+	scaledVector[X] = scale * vector[X];
+	scaledVector[Y] = scale * vector[Y];
+	scaledVector[Z] = scale * vector[Z];
+
+	return GZ_SUCCESS;
+}
+
+int GzVectorAdd(GzCoord vectAplusB, GzCoord A, GzCoord B) {
+	vectAplusB[X] = A[X] + B[X];
+	vectAplusB[Y] = A[Y] + B[Y];
+	vectAplusB[Z] = A[Z] + B[Z];
+
+	return GZ_SUCCESS;
+}
+
+int GzRayOffsetFromCamera(int width, int height, float aspect_ratio, int x, int y, float * x_amnt, float * y_amnt) {
+
+	if (width > height) {
+		*x_amnt = ((x + 0.5) / width) * aspect_ratio - (((width - height) / (float)height) / 2);
+		*y_amnt = ((height - y) + 0.5) / height;
+	}
+	else if (width < height) {
+		*x_amnt = (x + 0.5) / width;
+		*y_amnt = (((height - y) + 0.5) / height) / aspect_ratio - (((height - width) / (float)width) / 2);
+	}
+	else {
+		*x_amnt = (x + 0.5) / width;
+		*y_amnt = ((height - y) + 0.5) / height;
+	}
+
+	return GZ_SUCCESS;
+}
 
 /* NOT part of API - just for general assistance */
 
@@ -701,4 +1021,3 @@ short	ctoi(float color)		/* convert float color to GzIntensity short */
 {
   return(short)((int)(color * ((1 << 12) - 1)));
 }
-

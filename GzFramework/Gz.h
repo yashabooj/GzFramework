@@ -114,6 +114,34 @@ typedef struct  GzInput
 
 #endif
 
+#ifndef GZRAY
+#define GZRAY
+typedef struct  GzRay
+{
+		GzCoord        direction; 	/* vector from tail to head */
+		GzCoord        origin;		/* tail of the ray */
+} GzRay;
+#endif
+
+#ifndef GZPLANE
+#define GZPLANE
+typedef struct  GzPlane
+{
+		GzCoord        normal; 	    /* normal  to plane surface*/
+		//GzColor        color;		/* flat color intensity */
+		float          distance;    /* distance from origin */
+} GzPlane;
+#endif
+
+#ifndef GZTRIANGLE
+#define GZTRIANGLE
+typedef struct GzTriangle
+{
+		GzCoord vertex[3];
+		GzCoord vertNormal[3];
+} GzTriangle;
+#endif
+
 #define RED     0               /* array indicies for color vector */
 #define GREEN   1
 #define BLUE    2

@@ -6,6 +6,7 @@ abooj@usc.edu */
 /* CS580 Homework 6 */
 
 #include "disp.h" /* include your own disp.h file (e.g. hw1)*/
+#include <vector>
 
 /* Camera defaults */
 #define	DEFAULT_FOV		35.0
@@ -83,3 +84,22 @@ int GzTransformCoordinates(GzCoord xformCoord, GzCoord origCoord, GzMatrix Xform
 int GzTransformNormals(GzCoord xformNorm, GzCoord origNorm, GzMatrix XformMat);
 int GzShade(GzColor color, GzRender* render, GzCoord N);
 int GzGetTexture(GzColor K, GzRender* render, GzTextureIndex UV[], GzCoord z, float alpha, float beta, float gamma);
+int GzSetPlane(GzPlane* p, GzCoord V1, GzCoord V2, GzCoord V3, GzCoord N1, GzCoord N2, GzCoord N3);
+int GzSetPlane(GzPlane* p, GzTriangle tri);
+float GzNorm(GzCoord vector);
+int GzNormalize(GzCoord vector);
+int GzCrossProduct(GzCoord ACrossB, GzCoord A, GzCoord B);
+int GzVector(GzCoord vectAtoB, GzCoord A, GzCoord B);
+int GzRayTriangleIntersection(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3);
+int GzRayTriangleIntersection(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri);
+int GzPointWithinTriangle(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3);
+int GzPointWithinTriangle(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri);
+int GzPointAbovePlane(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzCoord V1, GzCoord V2, GzCoord V3);
+int GzPointAbovePlane(GzCoord PointOfIntersection, GzPlane plane, GzRay ray, GzTriangle tri);
+int GzSetTriangle(GzTriangle* tri, GzCoord V1, GzCoord V2, GzCoord V3, GzCoord N1, GzCoord N2, GzCoord N3);
+int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList);
+int GzRayOffsetFromCamera(int width, int height, float aspect_ratio, int x, int y, float * x_amnt, float * y_amnt);
+int GzSetRay(GzRay* ray, GzCoord origin, GzCoord direction);
+int GzScalarMultiply(GzCoord scaledVector, GzCoord vector, float scale);
+int GzVectorAdd(GzCoord vectAplusB, GzCoord A, GzCoord B);
+float GzEuclideanDistance(GzCoord coordA, GzCoord coordB);
