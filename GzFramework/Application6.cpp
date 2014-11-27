@@ -396,21 +396,20 @@ int Application6::Render()
 		* NOTE: this sequence matches the nameList token sequence
 		*/
 
+		// apply transformations
+		GzCoord V1, V2, V3;
+		GzTransformCoordinates(V1, vertexList[0], m_pRender[0]->Ximage[m_pRender[0]->matlevel]);
+		GzTransformCoordinates(V2, vertexList[1], m_pRender[0]->Ximage[m_pRender[0]->matlevel]);
+		GzTransformCoordinates(V3, vertexList[2], m_pRender[0]->Ximage[m_pRender[0]->matlevel]);
+		GzCoord N1, N2, N3;
+		GzTransformNormals(N1, normalList[0], m_pRender[0]->Xnorm[m_pRender[0]->matlevel]);
+		GzTransformNormals(N2, normalList[1], m_pRender[0]->Xnorm[m_pRender[0]->matlevel]);
+		GzTransformNormals(N3, normalList[2], m_pRender[0]->Xnorm[m_pRender[0]->matlevel]);
 		GzTriangle* tri = new GzTriangle;
-		GzSetTriangle(tri, vertexList[0], vertexList[1], vertexList[2], normalList[0], normalList[1], normalList[2]);
+		//GzSetTriangle(tri, vertexList[0], vertexList[1], vertexList[2], normalList[0], normalList[1], normalList[2]);
+		GzSetTriangle(tri, V1, V2, V3, N1, N2, N3);
 		triangleList.push_back(tri);
-
-		//valueListTriangle[0] = (GzPointer)vertexList;
-		//valueListTriangle[1] = (GzPointer)normalList;
-		//valueListTriangle[2] = (GzPointer)uvList;
-		//for (int i = 0; i < AAKERNEL_SIZE; i++)
-		//	GzPutTriangle(m_pRender[i], 3, nameListTriangle, valueListTriangle);
 	}
-
-	//GzAntiAlias(&m_pDisplay[AAKERNEL_SIZE], m_pRender);
-
-	//GzFlushDisplay2File(outfile, m_pDisplay[AAKERNEL_SIZE]); 	/* write out or update display to file*/
-	//GzFlushDisplay2FrameBuffer(m_pFrameBuffer, m_pDisplay[AAKERNEL_SIZE]);	// write out or update display to frame buffer
 
 	GzRayTrace(m_pRender[0], triangleList);
 

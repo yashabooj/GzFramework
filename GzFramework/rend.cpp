@@ -229,6 +229,7 @@ int GzBeginRender(GzRender *render)
 		for (int j = 0; j < 4; j++)
 			render->Ximage[render->matlevel][i][j] = render->Xsp[i][j];
 	GzIdentityMatrix(render->Xnorm[render->matlevel]);
+	GzIdentityMatrix(render->Ximage[render->matlevel]);
 
 	(render->matlevel)++;
 	GzMatrixMultiply(render->Ximage[render->matlevel], render->Ximage[render->matlevel - 1], render->camera.Xpi);
@@ -895,19 +896,32 @@ int GzSetTriangle(GzTriangle* tri, GzCoord V1, GzCoord V2, GzCoord V3, GzCoord N
 }
 
 int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
-	GzCoord cameraDir;
-	GzVector(cameraDir, render->camera.position, render->camera.lookat);
-	GzNormalize(cameraDir);
+	//GzCoord cameraDir;
+	//GzVector(cameraDir, render->camera.position, render->camera.lookat);
+	//GzNormalize(cameraDir);
 
-	GzCoord cameraLeft;
-	GzCrossProduct(cameraLeft, render->camera.worldup, cameraDir);
-	GzNormalize(cameraLeft);
+	//GzCoord cameraLeft;
+	//GzCrossProduct(cameraLeft, render->camera.worldup, cameraDir);
+	////GzCrossProduct(cameraLeft, cameraDir, render->camera.worldup);
+	//GzNormalize(cameraLeft);
 
 	float aspect_ratio = (float)render->display->xres / (float)render->display->yres;
 
+	float start_x = -aspect_ratio * 1.0;
+	float start_y = -1.0;
+
+	float step = abs(2 * start_y / (float)render->display->yres);
+
+	float curr_x, curr_y;
+	float curr_z = 0.0;
+
+	GzCoord camera = { 0.0, 0.0, -tan((render->camera.FOV * PI) / 180.0) };
+	GzCoord point;
+	point[2] = curr_z;
+
 	for (int x = 0; x < render->display->xres; x++) {
 		for (int y = 0; y < render->display->yres; y++) {
-			float xamnt, yamnt;
+			/*float xamnt, yamnt;
 			GzRayOffsetFromCamera(render->display->xres, render->display->yres, aspect_ratio, x, y, &xamnt, &yamnt);
 
 			GzCoord scaledCamLeft;
@@ -918,12 +932,23 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 			GzVectorAdd(tempVect, scaledCamLeft, scaledCamUp);
 			GzCoord rayDirection;
 			GzVectorAdd(rayDirection, tempVect, cameraDir);
+			GzNormalize(rayDirection);*/
+
+
+			// find the actual coordinates in the virtual image plane corresponding to the
+			// pixel location in the actual image
+			curr_x = start_x + x * step + step / 2;
+			curr_y = start_y + (render->display->yres - y - 1) * step + step / 2; 
+			point[0] = curr_x;
+			point[1] = curr_y;
+			GzCoord rayDirection;
+			GzVector(rayDirection, camera, point);
 			GzNormalize(rayDirection);
 
 			GzRay ray;
-			GzSetRay(&ray, render->camera.position, rayDirection);
+			//GzSetRay(&ray, render->camera.position, rayDirection);
+			GzSetRay(&ray, camera, rayDirection);
 
-			//std::vector<GzCoord>	intersections;
 			std::vector<float>	intersections;
 			std::vector<int>	triangleIndex;
 
@@ -936,7 +961,6 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 				if (check == GZ_FAILURE)
 					continue;
 				else {
-					//intersections.push_back(point);
 					intersections.push_back(GzEuclideanDistance(point, render->camera.position));
 					triangleIndex.push_back(index);
 				}
@@ -948,17 +972,14 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 			float minDist = INT_MAX;
 			int minTriInd;
 			for (int index = 0; index < intersections.size(); index++) {
-				//float distance = GzEuclideanDistance(intersections.at(index), render->camera.position);
 
-				//if (distance < minDist) {
-				//	minDist = distance;
 				if (intersections.at(index) < minDist) {
 					minDist = intersections.at(index);
 					minTriInd = triangleIndex.at(index);
 				}
 			}
 
-			GzPutDisplay(render->display, y, x, 4096, 0, 4096, 0, minDist);
+			GzPutDisplay(render->display, x, y, 4096, 0, 4096, 0, minDist);
 		}
 	}
 
