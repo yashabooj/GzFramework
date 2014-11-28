@@ -669,6 +669,79 @@ int GzShade(GzColor color, GzRender* render, GzCoord N) {
 	return GZ_SUCCESS;
 }
 
+int GzShadeWithShadow(GzColor color, GzRender* render, GzCoord N, GzCoord point, std::vector<GzTriangle*> triangleList, int triIndex) {
+	GzCoord E, R, tempN;
+	float NDotL, NDotE, RDotE;
+
+	color[0] = 0.0;	color[1] = 0.0;	color[2] = 0.0;
+	E[0] = 0.0;	E[1] = 0.0;	E[2] = -1.0;
+	NDotE = GzDotProduct(N, E);
+
+	for (int ind = 0; ind < render->numlights; ind++) {
+
+		GzCoord rayDirection;
+		rayDirection[X] = (-1.0) * render->lights[ind].direction[X];
+		rayDirection[Y] = (-1.0) * render->lights[ind].direction[Y];
+		rayDirection[Z] = (-1.0) * render->lights[ind].direction[Z];
+		GzRay ray;
+		GzSetRay(&ray, point, rayDirection);
+
+		int flag = 0;
+		for (int index = 0; index < triangleList.size(); index++) {
+			if (index == triIndex)
+				continue;
+
+			GzPlane plane;
+			GzSetPlane(&plane, *(triangleList.at(index)));
+			GzCoord intersectionPoint;
+			int check = GzRayTriangleIntersection(intersectionPoint, plane, ray, *(triangleList.at(index)));
+
+			if (check == GZ_FAILURE)
+				continue;
+			else {
+				flag = 1;
+				break;
+			}
+		}
+
+		if (flag == 1)
+			continue;
+
+		for (int i = 0; i < 3; i++)
+			tempN[i] = N[i];
+
+		NDotL = GzDotProduct(tempN, render->lights[ind].direction);
+		if ((NDotL < 0) && (NDotE < 0)) {
+			tempN[0] = (-1.0) * tempN[0];	tempN[1] = (-1.0) * tempN[1];	tempN[2] = (-1.0) * tempN[2];
+			NDotL = GzDotProduct(tempN, render->lights[ind].direction);
+		}
+		else if ((NDotL < 0) || (NDotE < 0))
+			continue;
+
+		for (int comp = 0; comp < 3; comp++)
+			R[comp] = 2.0 * NDotL * tempN[comp] - render->lights[ind].direction[comp];
+
+		RDotE = GzDotProduct(R, E);
+		if (RDotE < 0.0)	RDotE = 0.0;
+		if (RDotE > 1.0)	RDotE = 1.0;
+
+		for (int comp = 0; comp < 3; comp++) {
+			color[comp] = color[comp] + (render->Kd[comp] * NDotL +
+				render->Ks[comp] * pow(RDotE, render->spec)) * render->lights[ind].color[comp];
+		}
+	}
+
+	for (int comp = 0; comp < 3; comp++) {
+		color[comp] = color[comp] + render->Ka[comp] * render->ambientlight.color[comp];
+		if (color[comp] > 1.0)
+			color[comp] = 1.0;
+		if (color[comp] < 0.0)
+			color[comp] = 0.0;
+	}
+
+	return GZ_SUCCESS;
+}
+
 
 int GzGetTexture(GzColor K, GzRender* render, GzTextureIndex vertUV[], GzCoord z, float alpha, float beta, float gamma) {
 	GzTextureIndex UVwarp[3], UVpersp, UV;
@@ -923,7 +996,7 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 		for (int y = 0; y < render->display->yres; y++) {
 			/*float xamnt, yamnt;
 			GzRayOffsetFromCamera(render->display->xres, render->display->yres, aspect_ratio, x, y, &xamnt, &yamnt);
-				   
+
 			GzCoord scaledCamLeft;
 			GzScalarMultiply(scaledCamLeft, cameraLeft, (xamnt - 0.5));
 			GzCoord scaledCamUp;
@@ -951,7 +1024,7 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 
 			std::vector<float>	intersections;
 			std::vector<int>	triangleIndex;
-			
+
 			for (int index = 0; index < triangleList.size(); index++) {
 				GzPlane plane;
 				GzSetPlane(&plane, *(triangleList.at(index)));
@@ -978,15 +1051,41 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 					minTriInd = triangleIndex.at(index);
 				}
 			}
-			
-			GzPutDisplay(render->display, x, y, 4096, 0, 4096, 0, minDist);
+
+			GzPlane plane;
+			GzSetPlane(&plane, *(triangleList.at(minTriInd)));
+			GzCoord PointOfIntersection;
+			GzRayTriangleIntersection(PointOfIntersection, plane, ray, *(triangleList.at(minTriInd)));
+
+			float alpha, beta, gamma;
+			GzGetBarycentricCoordinates(&alpha, &beta, &gamma, PointOfIntersection[X], PointOfIntersection[Y], *triangleList.at(minTriInd));
+			GzCoord normal;
+			GzInterpolateNormals(normal, alpha, beta, gamma, *triangleList.at(minTriInd));
+			GzCoord color;
+			GzShade(color, render, normal);
+			//GzShadeWithShadow(color, render, normal, PointOfIntersection, triangleList, minTriInd);
+
+			//// Z-interpolation using barycentric coordinates
+			//float zDepth = alpha * (*triangleList.at(minTriInd)).vertex[2][Z] + 
+			//	beta * (*triangleList.at(minTriInd)).vertex[0][Z] + gamma * (*triangleList.at(minTriInd)).vertex[1][Z];
+
+			GzPutDisplay(render->display, x, y, (GzIntensity)(color[0] * 4095.0), (GzIntensity)(color[1] * 4095.0), 
+				(GzIntensity)(color[2] * 4095.0), 0, minDist);
 		}
 	}
 
 	return GZ_SUCCESS;
 }
 
+int GzInterpolateNormals(GzCoord normal, float alpha, float beta, float gamma, GzTriangle tri) {
+	normal[0] = alpha * tri.vertNormal[2][X] + beta * tri.vertNormal[0][X] + gamma * tri.vertNormal[1][X];
+	normal[1] = alpha * tri.vertNormal[2][Y] + beta * tri.vertNormal[0][Y] + gamma * tri.vertNormal[1][Y];
+	normal[2] = alpha * tri.vertNormal[2][Z] + beta * tri.vertNormal[0][Z] + gamma * tri.vertNormal[1][Z];
+	
+	normal[0] = normal[0] / GzNorm(normal);	normal[1] = normal[1] / GzNorm(normal);	normal[2] = normal[2] / GzNorm(normal);
 
+	return GZ_SUCCESS;
+}
 
 float GzEuclideanDistance(GzCoord coordA, GzCoord coordB) {
 	return sqrtf(pow(coordA[X] - coordB[X], 2) + pow(coordA[Y] - coordB[Y], 2) + pow(coordA[Z] - coordB[Z], 2));
@@ -1038,97 +1137,31 @@ int GzRayOffsetFromCamera(int width, int height, float aspect_ratio, int x, int 
 	return GZ_SUCCESS;
 }
 
+int GzGetBarycentricCoordinates(float *alpha, float * beta, float *gamma, float xCoord, float yCoord, GzTriangle tri) {
 
-int GzAddColors(GzColor resultant, GzColor colorA, GzColor colorB) {
-	
-	resultant[R] = colorA[R] + colorB[R]; 
-	resultant[G] = colorA[G] + colorB[G];
-	resultant[B] = colorA[B] + colorB[B];
-	
+	GzCoord x, y, z;
+	x[0] = tri.vertex[0][X];	x[1] = tri.vertex[1][X];	x[2] = tri.vertex[2][X];
+	y[0] = tri.vertex[0][Y];	y[1] = tri.vertex[1][Y];	y[2] = tri.vertex[2][Y];
+	z[0] = tri.vertex[0][Z];	z[1] = tri.vertex[1][Z];	z[2] = tri.vertex[2][Z];
+
+	// compute the coefficients of edge line equations
+	float A[2], B[2], C[2];
+
+	A[0] = y[0] - y[1];
+	B[0] = x[1] - x[0];
+	C[0] = x[0] * y[1] - x[1] * y[0];
+
+	A[1] = y[1] - y[2];
+	B[1] = x[2] - x[1];
+	C[1] = x[1] * y[2] - x[2] * y[1];
+
+	// calculate barycentric coordinates for the pixel (i,j)
+	*alpha = (A[0] * (float)xCoord + B[0] * (float)yCoord + C[0]) / (A[0] * x[2] + B[0] * y[2] + C[0]);
+	*beta = (A[1] * (float)xCoord + B[1] * (float)yCoord + C[1]) / (A[1] * x[0] + B[1] * y[0] + C[1]);
+	*gamma = 1 - *alpha - *beta;
+
 	return GZ_SUCCESS;
 }
-
-int GzAdjustColorBrightness(GzColor scaledColor, GzColor color, float scale) {
-	
-	scaledColor[R] = scale * color[R];
-	scaledColor[G] = scale * color[G];
-	scaledColor[B] = scale * color[B];
-	
-	return GZ_SUCCESS;
-}
-
-int addReflections(GzTriangle tri, GzCoord incomingRayDirection, GzCoord pointOfIntersection, GzColor colorFromPrimaryIntersection) {
-	GzCoord barycentricCoords;
-	GzGetBarycentricCoords();
-	
-	
-	/* Step 1: Generate the reflection ray */
-	GzCoord N1 = tri.vertNormal[0];
-	GzCoord N2 = tri.vertNormal[1];
-	GzCoord N3 = tri.vertNormal[2];	
-	
-	GzCoord normalAtPointOfIntersection;
-	GzBarycentricInterpolation(normalAtPointOfIntersection, N1, N2, N3, barycentricCoords);
-	
-	GzCoord invertedRayDirection;
-	GzScalarMultiply(invertedRayDirection, incomingRayDirection, -1.0);
-	float dot_normal_ray = GzDotProduct(normalAtPointOfIntersection, invertedRayDirection);
-	
-	GzCoord reflectedRayDirection;
-	GzCoord tempVector1, tempVector2, tempVector3;
-	GzScalarMultiply(tempVector1, normalAtPointOfIntersection, dot_normal_ray);
-	GzVectorAdd(tempVector2, incomingRayDirection, tempVector1);
-	GzScalarMultiply(tempVector3, tempVector2, 2.0);
-	GzVectorAdd(reflectedRayDirection, invertedRayDirection, tempVector3);
-	GzNormalize(reflectedRayDirection);
-	
-	
-	/* Step 2 : Find out all possible intersections of the reflected ray */
-	std::vector<float>	reflection_intersections;
-	std::vector<int>	triangleIndex;
-	
-	for (int index = 0; index < triangleList.size(); index++) {
-		GzPlane plane;
-		GzSetPlane(&plane, *(triangleList.at(index)));
-		GzCoord point;
-		int check = GzRayTriangleIntersection(point, plane, ray, *(triangleList.at(index)));
-
-		if (check == GZ_FAILURE)
-			continue;
-		else {
-			//intersections.push_back(point);
-			reflection_intersections.push_back(GzEuclideanDistance(point, render->camera.position));
-			triangleIndex.push_back(index);
-		}
-	}
-	
-	
-	/* Step 3 : Find the closest intersecting triangle */
-	int closest_triangle_index = closestTriangleIndex(reflection_intersections);
-	
-	/* Step 4 : Fetch color of the intersecting point */
-	if(closest_triangle_index != -1) {
-		if(reflection_intersections.at(closest_triangle_index) > accuracy) {
-			
-			GzCoord reflectionIntersectionPoint;	
-			float distance_to_intersecting_object = reflection_intersections.at(closest_triangle_index);
-			GzCoord scaledReflectedRayDirection;
-			GzScalarMultiply(scaledReflectedRayDirection, reflectedRayDirection, distance_to_intersecting_object);
-			GzVectorAdd(reflectionIntersectionPoint, pointOfIntersection, scaledReflectedRayDirection);
-			
-			GzColor colorFromReflection;
-			GzGetColor(colorFromReflection, render, reflectionIntersectionPoint, reflectedRayDirection, triangleList, closest_triangle_index); 
-			
-			float scaling_factor;
-			GzAdjustColorBrightness(colorFromReflection, colorFromReflection, scaling_factor);
-			GzAddColors(colorFromPrimaryIntersection, colorFromPrimaryIntersection, colorFromReflection);
-		}
-	}
-	
-	return GZ_SUCCESS;
-}
-
-
 
 /* NOT part of API - just for general assistance */
 

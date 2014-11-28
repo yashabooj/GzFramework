@@ -103,3 +103,6 @@ int GzSetRay(GzRay* ray, GzCoord origin, GzCoord direction);
 int GzScalarMultiply(GzCoord scaledVector, GzCoord vector, float scale);
 int GzVectorAdd(GzCoord vectAplusB, GzCoord A, GzCoord B);
 float GzEuclideanDistance(GzCoord coordA, GzCoord coordB);
+int GzGetBarycentricCoordinates(float *alpha, float * beta, float *gamma, float xCoord, float yCoord, GzTriangle tri);
+int GzInterpolateNormals(GzCoord normal, float alpha, float beta, float gamma, GzTriangle tri);
+int GzShadeWithShadow(GzColor color, GzRender* render, GzCoord N, GzCoord point, std::vector<GzTriangle*> triangleList, int triIndex);
