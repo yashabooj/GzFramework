@@ -232,7 +232,8 @@ int GzBeginRender(GzRender *render)
 	GzIdentityMatrix(render->Ximage[render->matlevel]);
 
 	(render->matlevel)++;
-	GzMatrixMultiply(render->Ximage[render->matlevel], render->Ximage[render->matlevel - 1], render->camera.Xpi);
+	//GzMatrixMultiply(render->Ximage[render->matlevel], render->Ximage[render->matlevel - 1], render->camera.Xpi);
+	GzMatrixMultiply(render->Ximage[render->matlevel], render->Ximage[render->matlevel - 1], identity);
 	GzMatrixMultiply(render->Xnorm[render->matlevel], render->Xnorm[render->matlevel - 1], identity);
 
 	GzMatrix temp;
@@ -633,7 +634,8 @@ int GzShade(GzColor color, GzRender* render, GzCoord N) {
 	E[0]	 = 0.0;	E[1]	 = 0.0;	E[2]	 = -1.0;
 	NDotE = GzDotProduct(N, E);
 
-	for (int ind = 0; ind < render->numlights; ind++) {
+	//for (int ind = 0; ind < render->numlights; ind++) {
+	for (int ind = 0; ind < render->numlights; ind += 2) {
 		for (int i = 0; i < 3; i++)
 			tempN[i] = N[i];
 
@@ -677,24 +679,35 @@ int GzShadeWithShadow(GzColor color, GzRender* render, GzCoord N, GzCoord point,
 	E[0] = 0.0;	E[1] = 0.0;	E[2] = -1.0;
 	NDotE = GzDotProduct(N, E);
 
-	for (int ind = 0; ind < render->numlights; ind++) {
+	//for (int ind = 0; ind < render->numlights; ind++) {
+	for (int ind = 0; ind < render->numlights; ind += 2) {
 
 		GzCoord rayDirection;
 		rayDirection[X] = (-1.0) * render->lights[ind].direction[X];
 		rayDirection[Y] = (-1.0) * render->lights[ind].direction[Y];
 		rayDirection[Z] = (-1.0) * render->lights[ind].direction[Z];
+		GzNormalize(rayDirection);
 		GzRay ray;
 		GzSetRay(&ray, point, rayDirection);
 
 		int flag = 0;
 		for (int index = 0; index < triangleList.size(); index++) {
-			if (index == triIndex)
-				continue;
+			/*if (index == triIndex)
+				continue;*/
 
 			GzPlane plane;
 			GzSetPlane(&plane, *(triangleList.at(index)));
 			GzCoord intersectionPoint;
 			int check = GzRayTriangleIntersection(intersectionPoint, plane, ray, *(triangleList.at(index)));
+
+			//float accuracy = GzEuclideanDistance(intersectionPoint, ray.origin);
+			if (GzEuclideanDistance(intersectionPoint, ray.origin) < 0.001)
+				continue;
+
+			GzCoord shadowCheck;
+			GzVector(shadowCheck, ray.origin, intersectionPoint);
+			if (GzDotProduct(shadowCheck, N) < 1e-3)
+				continue;
 
 			if (check == GZ_FAILURE)
 				continue;
@@ -877,11 +890,23 @@ int GzRayTriangleIntersection(GzCoord PointOfIntersection, GzPlane plane, GzRay 
 	if ((cosine > (-0.00001)) && (cosine < 0.00001))
 		return GZ_FAILURE;
 
+	/*GzCoord tempVector;
+	float distance = GzDotProduct(plane.normal, tri.vertex[0]);
+	GzCoord scaledVector;
+	GzScalarMultiply(scaledVector, plane.normal, distance);
+	GzVector(tempVector, scaledVector, ray.origin);
+	float paramRay = (-1) * GzDotProduct(plane.normal, tempVector) / cosine;*/
 	float paramRay = (-1) * (GzDotProduct(plane.normal, ray.origin) + plane.distance) / cosine;
 
 	PointOfIntersection[X] = ray.origin[X] + paramRay * ray.direction[X];
 	PointOfIntersection[Y] = ray.origin[Y] + paramRay * ray.direction[Y];
 	PointOfIntersection[Z] = ray.origin[Z] + paramRay * ray.direction[Z];
+
+	GzCoord intersectDir;
+	GzVector(intersectDir, ray.origin, PointOfIntersection);
+	float validIntersection = GzDotProduct(ray.direction, intersectDir);
+	if (validIntersection < 0.0)
+		return GZ_FAILURE;
 
 	int check = GzPointWithinTriangle(PointOfIntersection, plane, ray, tri);
 
@@ -992,8 +1017,12 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 	GzCoord point;
 	point[2] = curr_z;
 
+	float minZDepth = INT_MAX, maxZDepth = INT_MIN;
 	for (int x = 0; x < render->display->xres; x++) {
 		for (int y = 0; y < render->display->yres; y++) {
+			if ((x == (render->display->xres / 2)) && (y == (render->display->yres / 2)))
+				int testFlag = GZ_SUCCESS;
+
 			/*float xamnt, yamnt;
 			GzRayOffsetFromCamera(render->display->xres, render->display->yres, aspect_ratio, x, y, &xamnt, &yamnt);
 
@@ -1071,8 +1100,38 @@ int GzRayTrace(GzRender* render, std::vector<GzTriangle*> triangleList) {
 
 			GzPutDisplay(render->display, x, y, (GzIntensity)(color[0] * 4095.0), (GzIntensity)(color[1] * 4095.0), 
 				(GzIntensity)(color[2] * 4095.0), 0, minDist);
+
+			if (minDist > maxZDepth)
+				maxZDepth = minDist;
+
+			if (minDist < minZDepth)
+				minZDepth = minDist;
 		}
 	}
+
+	//for (int x = 1; x < (render->display->xres - 1); x++) {
+	//	for (int y = 1; y < (render->display->yres - 1); y++) {
+	//		GzIntensity red, green, blue, alpha;
+	//		GzDepth z;
+	//		GzGetDisplay(render->display, x, y, &red, &green, &blue, &alpha, &z);
+
+	//		if (z > ((minZDepth + maxZDepth) / 2.0)) {
+	//			float sumR = 0, sumG = 0, sumB = 0;
+	//			for (int i = -1; i <= 1; i++) {
+	//				for (int j = -1; j <= 1; j++) {
+	//					GzIntensity tempR, tempG, tempB, tempA;
+	//					GzDepth depth;
+	//					GzGetDisplay(render->display, x + j, y + i, &tempR, &tempG, &tempB, &tempA, &depth);
+	//					sumR += (float)tempR;
+	//					sumG += (float)tempG;
+	//					sumB += (float)tempB;
+	//				}
+	//			}
+	//			sumR /= 9.0;	sumG /= 9.0;	sumB /= 9.0;
+	//			GzPutDisplay(render->display, x, y, (GzIntensity)(sumR), (GzIntensity)(sumG), (GzIntensity)(sumB), 0, z);
+	//		}
+	//	}
+	//}
 
 	return GZ_SUCCESS;
 }
